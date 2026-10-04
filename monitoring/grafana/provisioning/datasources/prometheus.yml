@@ -1,0 +1,14 @@
+apiVersion: 1
+
+# uid를 고정하기 전에 만들어진 같은 이름의 데이터소스가 있으면 충돌하므로 먼저 삭제
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true

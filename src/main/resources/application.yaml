@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: batch-monitor
+  batch:
+    job:
+      # Job이 여러 개라 이름 지정 필수. 변경: JOB_NAME=squareJob ./gradlew bootRun
+      name: ${JOB_NAME:helloJob}
+    jdbc:
+      initialize-schema: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  prometheus:
+    metrics:
+      export:
+        pushgateway:
+          enabled: true
+          base-url: ${PUSHGATEWAY_URL:http://localhost:9091}
+          job: ${spring.batch.job.name}
+          # 배치는 금방 끝나므로 앱 종료 시점에 한 번 push
+          shutdown-operation: post
+  metrics:
+    tags:
+      application: ${spring.application.name}

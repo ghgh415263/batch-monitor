@@ -1,0 +1,201 @@
+{
+  "uid": "batch-monitor",
+  "title": "Batch Monitor",
+  "tags": ["batch", "spring-batch"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "label": "Job",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "definition": "label_values(spring_batch_job_seconds_count, job)",
+        "query": { "query": "label_values(spring_batch_job_seconds_count, job)", "refId": "job-var" },
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "전체 Job",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true,
+          "expr": "count(count by (job) (spring_batch_job_seconds_count{job=~\"$job\"})) or vector(0)" }
+      ],
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value",
+                   "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "fieldConfig": { "defaults": { "unit": "none", "color": { "mode": "fixed", "fixedColor": "blue" } }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "최근 실행 성공",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true,
+          "expr": "count(spring_batch_job_seconds_count{job=~\"$job\", spring_batch_job_status=\"COMPLETED\"}) or vector(0)" }
+      ],
+      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value",
+                   "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "fieldConfig": { "defaults": { "unit": "none", "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "최근 실행 실패",
+      "description": "가장 최근 실행이 COMPLETED가 아닌 Job 수",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true,
+          "expr": "count(spring_batch_job_seconds_count{job=~\"$job\", spring_batch_job_status!=\"COMPLETED\"}) or vector(0)" }
+      ],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value",
+                   "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "fieldConfig": {
+        "defaults": { "unit": "none",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "red", "value": 1 }
+          ] } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Job 목록",
+      "description": "실패한 Job이 위로 정렬됩니다. 컬럼 헤더 클릭으로 정렬, 필터 아이콘으로 검색할 수 있습니다.",
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "format": "table",
+          "expr": "max by (job, spring_batch_job_status) (spring_batch_job_seconds_count{job=~\"$job\"})" },
+        { "refId": "B", "instant": true, "format": "table",
+          "expr": "max by (job) (push_time_seconds{job=~\"$job\"} and on(job) spring_batch_job_seconds_count) * 1000" },
+        { "refId": "C", "instant": true, "format": "table",
+          "expr": "max by (job) (spring_batch_job_seconds_sum{job=~\"$job\"} / spring_batch_job_seconds_count{job=~\"$job\"})" },
+        { "refId": "D", "instant": true, "format": "table",
+          "expr": "max by (job) (batch_job_last_success_timestamp_seconds{job=~\"$job\"}) * 1000" },
+        { "refId": "E", "instant": true, "format": "table",
+          "expr": "max by (job) (batch_job_last_failure_timestamp_seconds{job=~\"$job\"}) * 1000" },
+        { "refId": "F", "instant": true, "format": "table",
+          "expr": "max by (job) (time() - batch_job_last_success_timestamp_seconds{job=~\"$job\"})" }
+      ],
+      "transformations": [
+        { "id": "joinByField", "options": { "byField": "job", "mode": "outer" } },
+        { "id": "organize", "options": {
+          "excludeByName": {
+            "Time": true, "Time 1": true, "Time 2": true, "Time 3": true,
+            "Time 4": true, "Time 5": true, "Time 6": true,
+            "Value #A": true
+          },
+          "indexByName": {
+            "job": 0, "spring_batch_job_status": 1,
+            "Value #B": 2, "Value #D": 3, "Value #F": 4, "Value #E": 5, "Value #C": 6
+          },
+          "renameByName": {
+            "job": "Job",
+            "spring_batch_job_status": "최근 상태",
+            "Value #B": "최근 실행 시각",
+            "Value #D": "마지막 성공 시각",
+            "Value #F": "성공 후 경과",
+            "Value #E": "마지막 실패 시각",
+            "Value #C": "소요 시간"
+          }
+        } }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false },
+        "sortBy": [ { "displayName": "최근 상태", "desc": true } ]
+      },
+      "fieldConfig": {
+        "defaults": { "custom": { "filterable": true, "align": "auto" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "최근 실행 시각" },
+            "properties": [ { "id": "unit", "value": "dateTimeAsLocal" } ] },
+          { "matcher": { "id": "byName", "options": "마지막 성공 시각" },
+            "properties": [ { "id": "unit", "value": "dateTimeAsLocal" } ] },
+          { "matcher": { "id": "byName", "options": "마지막 실패 시각" },
+            "properties": [ { "id": "unit", "value": "dateTimeAsLocal" } ] },
+          { "matcher": { "id": "byName", "options": "소요 시간" },
+            "properties": [ { "id": "unit", "value": "s" } ] },
+          { "matcher": { "id": "byName", "options": "성공 후 경과" },
+            "properties": [
+              { "id": "unit", "value": "s" },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [
+                { "color": "green", "value": null },
+                { "color": "orange", "value": 86400 },
+                { "color": "red", "value": 172800 }
+              ] } }
+            ] },
+          { "matcher": { "id": "byName", "options": "최근 상태" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": {
+                  "COMPLETED": { "color": "green", "index": 0 },
+                  "FAILED": { "color": "red", "index": 1 }
+                } },
+                { "type": "special", "options": {
+                  "match": "null+nan", "result": { "color": "text", "index": 2 }
+                } }
+              ] }
+            ] }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Job 소요 시간 (최근 실행, 오래 걸린 순)",
+      "gridPos": { "h": 15, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "legendFormat": "{{job}}",
+          "expr": "sort_desc(max by (job) (spring_batch_job_seconds_sum{job=~\"$job\"} / spring_batch_job_seconds_count{job=~\"$job\"}))" }
+      ],
+      "options": {
+        "orientation": "horizontal", "displayMode": "gradient", "minVizHeight": 18, "minVizWidth": 0,
+        "valueMode": "color", "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] }
+    },
+    {
+      "id": 7,
+      "type": "bargauge",
+      "title": "Step 소요 시간 (최근 실행, 오래 걸린 순)",
+      "gridPos": { "h": 15, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "legendFormat": "{{job}} / {{spring_batch_step_name}}",
+          "expr": "sort_desc(max by (job, spring_batch_step_name) (spring_batch_step_seconds_sum{job=~\"$job\"} / spring_batch_step_seconds_count{job=~\"$job\"}))" }
+      ],
+      "options": {
+        "orientation": "horizontal", "displayMode": "gradient", "minVizHeight": 18, "minVizWidth": 0,
+        "valueMode": "color", "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] }
+    }
+  ]
+}

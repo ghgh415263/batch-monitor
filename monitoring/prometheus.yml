@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # 배치 앱이 Pushgateway로 push한 메트릭을 수집 (honor_labels: push 시 지정한 job/instance 라벨 유지)
+  - job_name: pushgateway
+    honor_labels: true
+    static_configs:
+      - targets: ['pushgateway:9091']

@@ -1,0 +1,46 @@
+services:
+  pushgateway:
+    image: prom/pushgateway:latest
+    # 재시작해도 push된 메트릭(마지막 성공 시각 등)이 유지되도록 파일로 영속화
+    command:
+      - --persistence.file=/data/pushgateway.db
+      - --persistence.interval=10s
+    user: root
+    ports:
+      - "9091:9091"
+    volumes:
+      - pushgateway-data:/data
+
+  prometheus:
+    image: prom/prometheus:latest
+    # 기본 config 경로/저장 경로를 명시하고 보존 기간을 30일로 설정
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - pushgateway
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  pushgateway-data:
